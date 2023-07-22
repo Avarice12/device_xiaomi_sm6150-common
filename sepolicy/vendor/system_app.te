@@ -9,3 +9,7 @@ allow system_app sysfs_vibrator:file rw_file_perms;
 
 r_dir_file(system_app, sysfs_msm_subsys)
 r_dir_file(system_app, vendor_sysfs_battery_supply)
+
+# Battery Health
+allow system_app sysfs_battery_supply:dir { search };
+allow system_app sysfs_battery_supply:file { open getattr };
