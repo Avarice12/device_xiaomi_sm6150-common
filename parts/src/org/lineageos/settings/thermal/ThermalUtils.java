@@ -19,12 +19,7 @@ package org.lineageos.settings.thermal;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.RemoteException;
-import android.os.SystemProperties;
 import android.os.UserHandle;
-import android.view.Display;
-import android.view.Surface;
-import android.view.WindowManager;
 
 import androidx.preference.PreferenceManager;
 
@@ -33,6 +28,7 @@ import org.lineageos.settings.utils.FileUtils;
 public final class ThermalUtils {
 
     private static final String THERMAL_CONTROL = "thermal_control";
+    private static final String THERMAL_SERVICE = "thermal_service";
 
     protected static final int STATE_DEFAULT = 0;
     protected static final int STATE_BENCHMARK = 1;
@@ -47,7 +43,7 @@ public final class ThermalUtils {
     private static final String THERMAL_STATE_BROWSER = "11";
     private static final String THERMAL_STATE_CAMERA = "12";
     private static final String THERMAL_STATE_DIALER = "8";
-    private static final String THERMAL_STATE_GAMING = "13";
+    private static final String THERMAL_STATE_GAMING = "9";
     private static final String THERMAL_STATE_STREAMING = "14";
 
     private static final String THERMAL_BENCHMARK = "thermal.benchmark=";
@@ -59,19 +55,32 @@ public final class ThermalUtils {
 
     private static final String THERMAL_SCONFIG = "/sys/class/thermal/thermal_message/sconfig";
 
-    private Display mDisplay;
     private SharedPreferences mSharedPrefs;
 
     protected ThermalUtils(Context context) {
         mSharedPrefs = PreferenceManager.getDefaultSharedPreferences(context);
-
-        WindowManager mWindowManager = context.getSystemService(WindowManager.class);
-        mDisplay = mWindowManager.getDefaultDisplay();
     }
 
-    public static void startService(Context context) {
+    public static void initialize(Context context) {
+        if (isServiceEnabled(context))
+            startService(context);
+        else
+            setDefaultThermalProfile();
+    }
+
+    protected static void startService(Context context) {
         context.startServiceAsUser(new Intent(context, ThermalService.class),
                 UserHandle.CURRENT);
+        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(THERMAL_SERVICE, "true").apply();
+    }
+
+    protected static void stopService(Context context) {
+        context.stopService(new Intent(context, ThermalService.class));
+        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(THERMAL_SERVICE, "false").apply();
+    }
+
+    protected static boolean isServiceEnabled(Context context) {
+        return true;
     }
 
     private void writeValue(String profiles) {
@@ -126,7 +135,6 @@ public final class ThermalUtils {
         String value = getValue();
         String[] modes = value.split(":");
         int state = STATE_DEFAULT;
-
         if (modes[0].contains(packageName + ",")) {
             state = STATE_BENCHMARK;
         } else if (modes[1].contains(packageName + ",")) {
@@ -144,7 +152,7 @@ public final class ThermalUtils {
         return state;
     }
 
-    protected void setDefaultThermalProfile() {
+    protected static void setDefaultThermalProfile() {
         FileUtils.writeLine(THERMAL_SCONFIG, THERMAL_STATE_DEFAULT);
     }
 
@@ -170,7 +178,6 @@ public final class ThermalUtils {
                 state = THERMAL_STATE_STREAMING;
             }
         }
-
         FileUtils.writeLine(THERMAL_SCONFIG, state);
     }
 }
